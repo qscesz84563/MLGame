@@ -2,7 +2,7 @@ import pickle
 import numpy as np
 import os
 from os import path
-from sklearn.tree import DecisionTreeClassifier
+from sklearn.ensemble import RandomForestClassifier
 from sklearn.model_selection import train_test_split
 from sklearn import metrics
 
@@ -77,6 +77,20 @@ if __name__ == '__main__':
     plat1_y = np.array(plat1_y)
     plat1_y = plat1_y.reshape(len(plat1_y), 1)
     data = np.hstack((data, plat1_y))
+
+    plat2_x = []
+    for i in range(len(Data)):
+        plat2_x.append(Data[i]['platform_2P'][0])
+    plat2_x = np.array(plat2_x)
+    plat2_x = plat2_x.reshape(len(plat2_x), 1)
+    data = np.hstack((data, plat2_x))
+
+    plat2_y = []
+    for i in range(len(Data)):
+        plat2_y.append(Data[i]['platform_2P'][1])
+    plat2_y = np.array(plat2_y)
+    plat2_y = plat2_y.reshape(len(plat2_y), 1)
+    data = np.hstack((data, plat2_y))
     # 6
     blocker_x = []
     for i in range(len(Data)):
@@ -94,11 +108,17 @@ if __name__ == '__main__':
 
     pred_same = []
     pred_minus5 = []
+    pred_minus10 = []
+    pred_minus15 = []
+    pred_minus20 = []
     pred_add5 = []
+    pred_add10 = []
+    pred_add15 = []
+    pred_add20 = []
     for i in range(len(Data)):
         if Data[i]["ball_speed"][1] > 0 : # 球正在向下 # ball goes down
             x = ( Data[i]["platform_1P"][1]-Data[i]["ball"][1] ) // Data[i]["ball_speed"][1] # 幾個frame以後會需要接  # x means how many frames before catch the ball
-            pred = Data[i]["ball"][0]+(Data[i]["ball_speed"][0]*x)  # 預測最終位置 # pred means predict ball landing site 
+            pred = Data[i]["ball"][0]+((Data[i]["ball_speed"][0] + np.sign(Data[i]["ball_speed"][0]) * 3)*x)  # 預測最終位置 # pred means predict ball landing site 
             bound = pred // 200 # Determine if it is beyond the boundary
             if (bound > 0): # pred > 200 # fix landing position
                 if (bound%2 == 0) : 
@@ -115,7 +135,13 @@ if __name__ == '__main__':
             
         pred_same.append(pred)
         pred_minus5.append(pred - 5)
+        pred_minus10.append(pred - 10)
+        pred_minus15.append(pred - 15)
+        pred_minus20.append(pred - 20)
         pred_add5.append(pred + 5)
+        pred_add10.append(pred + 10)
+        pred_add15.append(pred + 15)
+        pred_add20.append(pred + 20)
     
     pred_same = np.array(pred_same)
     pred_same = pred_same.reshape(len(pred_same), 1)
@@ -125,9 +151,33 @@ if __name__ == '__main__':
     pred_minus5 = pred_minus5.reshape(len(pred_minus5), 1)
     data = np.hstack((data, pred_minus5))
 
+    pred_minus10 = np.array(pred_minus10)
+    pred_minus10 = pred_minus10.reshape(len(pred_minus10), 1)
+    data = np.hstack((data, pred_minus10))
+
+    pred_minus15 = np.array(pred_minus15)
+    pred_minus15 = pred_minus15.reshape(len(pred_minus15), 1)
+    data = np.hstack((data, pred_minus15))
+
+    pred_minus20 = np.array(pred_minus20)
+    pred_minus20 = pred_minus20.reshape(len(pred_minus20), 1)
+    data = np.hstack((data, pred_minus20))
+
     pred_add5 = np.array(pred_add5)
     pred_add5 = pred_same.reshape(len(pred_add5), 1)
     data = np.hstack((data, pred_add5))
+
+    pred_add10 = np.array(pred_add10)
+    pred_add10 = pred_add10.reshape(len(pred_add10), 1)
+    data = np.hstack((data, pred_add10))
+
+    pred_add15 = np.array(pred_add15)
+    pred_add15 = pred_add15.reshape(len(pred_add15), 1)
+    data = np.hstack((data, pred_add15))
+
+    pred_add20 = np.array(pred_add20)
+    pred_add20 = pred_add20.reshape(len(pred_add20), 1)
+    data = np.hstack((data, pred_add20))
 
     command_1P = []
     for i in range(len(Data)):
@@ -142,7 +192,7 @@ if __name__ == '__main__':
     Y = data[:, -1]
 
     x_train , x_test,y_train,y_test = train_test_split(X,Y,test_size=0.2)
-    tree = DecisionTreeClassifier(criterion='entropy', max_depth=5, random_state=0)     
+    tree = RandomForestClassifier(criterion='entropy', n_estimators=3, random_state=0, n_jobs=2)     
     tree.fit(x_train, y_train)
     y_predict = tree.predict(x_test)
     print(y_predict)
