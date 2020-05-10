@@ -130,6 +130,25 @@ if __name__ == '__main__':
                     pred = abs(pred - (bound+1) *200)
                 else :
                     pred = pred + (abs(bound)*200)
+        elif Data[i]["ball"][1] >= 240:
+            rev_bvx = 0 - Data[i]["ball_speed"][0]
+            rev_bvy = 0 - Data[i]["ball_speed"][1]
+            if(rev_bvy == 0):
+                x = 0
+            else:
+                x = ( Data[i]["platform_1P"][1]-Data[i]["ball"][1] ) // rev_bvy # 幾個frame以後會需要接  # x means how many frames before catch the ball
+            pred = Data[i]["ball"][0]+((rev_bvx + np.sign(rev_bvx) * 5)*x)  # 預測最終位置 # pred means predict ball landing site 
+            bound = pred // 200 # Determine if it is beyond the boundary
+            if (bound > 0): # pred > 200 # fix landing position
+                if (bound%2 == 0) : 
+                    pred = pred - bound*200                    
+                else :
+                    pred = 200 - (pred - 200*bound)
+            elif (bound < 0) : # pred < 0
+                if (bound%2 ==1) :
+                    pred = abs(pred - (bound+1) *200)
+                else :
+                    pred = pred + (abs(bound)*200)
         else : # 球正在向上 # ball goes up
             pred = 100
 
@@ -155,9 +174,9 @@ if __name__ == '__main__':
     pred_minus10 = pred_minus10.reshape(len(pred_minus10), 1)
     data = np.hstack((data, pred_minus10))
 
-    pred_minus15 = np.array(pred_minus15)
-    pred_minus15 = pred_minus15.reshape(len(pred_minus15), 1)
-    data = np.hstack((data, pred_minus15))
+    # pred_minus15 = np.array(pred_minus15)
+    # pred_minus15 = pred_minus15.reshape(len(pred_minus15), 1)
+    # data = np.hstack((data, pred_minus15))
 
     # pred_minus20 = np.array(pred_minus20)
     # pred_minus20 = pred_minus20.reshape(len(pred_minus20), 1)
@@ -171,9 +190,9 @@ if __name__ == '__main__':
     pred_add10 = pred_add10.reshape(len(pred_add10), 1)
     data = np.hstack((data, pred_add10))
 
-    pred_add15 = np.array(pred_add15)
-    pred_add15 = pred_add15.reshape(len(pred_add15), 1)
-    data = np.hstack((data, pred_add15))
+    # pred_add15 = np.array(pred_add15)
+    # pred_add15 = pred_add15.reshape(len(pred_add15), 1)
+    # data = np.hstack((data, pred_add15))
 
     # pred_add20 = np.array(pred_add20)
     # pred_add20 = pred_add20.reshape(len(pred_add20), 1)
@@ -192,7 +211,7 @@ if __name__ == '__main__':
     Y = data[:, -1]
 
     x_train , x_test,y_train,y_test = train_test_split(X,Y,test_size=0.2)
-    tree = DecisionTreeClassifier(criterion='entropy', max_depth=10, random_state=0)     
+    tree = DecisionTreeClassifier(criterion='entropy', max_depth=15, random_state=0)     
     tree.fit(x_train, y_train)
     y_predict = tree.predict(x_test)
     print(y_predict)
@@ -211,6 +230,6 @@ if __name__ == '__main__':
     print(count1)
     print(count2)
 
-    with open('games/pingpong/ml/trained_model.pickle', 'wb') as f:
+    with open('games/pingpong/ml/save/trained_model.pickle', 'wb') as f:
         pickle.dump(tree, f)
 
