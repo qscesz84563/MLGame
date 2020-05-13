@@ -15,6 +15,49 @@ def transformCommand(command):
     else:
         return 0
 
+def check_hit_blocker(ballx, bally, ballvx, ballvy, blocker_pred_x):
+    y = abs((bally - 260) // ballvy)
+    pred = ballx + ballvx * y
+    if pred < 0:
+        x = abs(ballx // ballvx)
+        bally = bally + ballvy * x
+        ballx = 0
+        ballvx *= -1
+        y = abs((bally - 260) // ballvy)
+        pred = ballx + ballvx * y
+    else:
+        x = abs((ballx - 200)// ballvx)
+        bally = bally + ballvy * x
+        ballx = 200
+        ballvx *= -1
+        y = abs((bally - 260) // ballvy)
+        pred = ballx + ballvx * y
+        
+    if(pred >= blocker_pred_x and pred <= blocker_pred_x+30):
+        ballx = pred
+        bally = 260
+        ballvx *= -1
+        ballvy *= -1
+        y = abs((420 - 260) // ballvy)
+        pred = ballx + ballvx * y
+        if pred < 0:
+            x = abs(ballx // ballvx)
+            bally = bally + ballvy * x
+            ballx = 0
+            ballvx *= -1
+            y = abs((bally - 420) // ballvy)
+            pred = ballx + ballvx * y
+        else:
+            x = abs((ballx - 200)// ballvx)
+            bally = bally + ballvy * x
+            ballx = 200
+            ballvx *= -1
+            y = abs((bally - 420) // ballvy)
+            pred = ballx + ballvx * y
+    else: pred = 100
+
+    return pred
+
 if __name__ == '__main__':
     # read all file under log   
     # 因為 pickle 存的是放在列表裡的字典，先宣告一個空列表
@@ -71,12 +114,12 @@ if __name__ == '__main__':
     plat1_x = plat1_x.reshape(len(plat1_x), 1)
     data = np.hstack((data, plat1_x))
     # 5
-    plat1_y = []
-    for i in range (len(Data)):
-        plat1_y.append(Data[i]['platform_1P'][1])
-    plat1_y = np.array(plat1_y)
-    plat1_y = plat1_y.reshape(len(plat1_y), 1)
-    data = np.hstack((data, plat1_y))
+    # plat1_y = []
+    # for i in range (len(Data)):
+    #     plat1_y.append(Data[i]['platform_1P'][1])
+    # plat1_y = np.array(plat1_y)
+    # plat1_y = plat1_y.reshape(len(plat1_y), 1)
+    # data = np.hstack((data, plat1_y))
 
     plat2_x = []
     for i in range(len(Data)):
@@ -85,12 +128,12 @@ if __name__ == '__main__':
     plat2_x = plat2_x.reshape(len(plat2_x), 1)
     data = np.hstack((data, plat2_x))
 
-    plat2_y = []
-    for i in range(len(Data)):
-        plat2_y.append(Data[i]['platform_2P'][1])
-    plat2_y = np.array(plat2_y)
-    plat2_y = plat2_y.reshape(len(plat2_y), 1)
-    data = np.hstack((data, plat2_y))
+    # plat2_y = []
+    # for i in range(len(Data)):
+    #     plat2_y.append(Data[i]['platform_2P'][1])
+    # plat2_y = np.array(plat2_y)
+    # plat2_y = plat2_y.reshape(len(plat2_y), 1)
+    # data = np.hstack((data, plat2_y))
     # 6
     blocker_x = []
     for i in range(len(Data)):
@@ -116,39 +159,36 @@ if __name__ == '__main__':
     pred_add15 = []
     pred_add20 = []
     for i in range(len(Data)):
-        if Data[i]["ball_speed"][1] > 0 : # 球正在向下 # ball goes down
-            x = ( Data[i]["platform_1P"][1]-Data[i]["ball"][1] ) // Data[i]["ball_speed"][1] # 幾個frame以後會需要接  # x means how many frames before catch the ball
-            pred = Data[i]["ball"][0]+(Data[i]["ball_speed"][0]*x)  # 預測最終位置 # pred means predict ball landing site 
-            bound = pred // 200 # Determine if it is beyond the boundary
-            if (bound > 0): # pred > 200 # fix landing position
-                if (bound%2 == 0) : 
-                    pred = pred - bound*200                    
+        if(i == len(Data) - 1):
+            blockervx = Data[i]["ball"][0] - Data[i - 1]["ball"][0]
+        else:
+            blockervx = Data[i + 1]["ball"][0] - Data[i]["ball"][0]
+        if(Data[i]["ball"][1] >= 240 and Data[i]["ball_speed"][1] < 0):
+            ballx = Data[i]["ball"][0]
+            bally = Data[i]["ball"][1]
+            ballvx = Data[i]["ball_speed"][0]
+            ballvy = Data[i]["ball_speed"][1]
+            blocker_pred_x = Data[i]["blocker"][0] + blockervx*(abs((bally - 260) // ballvy))
+            if blocker_pred_x < 0: blocker_pred_x = abs(blocker_pred_x)
+            elif blocker_pred_x > 170: blocker_pred_x = 170 - (abs(blocker_pred_x) - 170)
+
+            pred = check_hit_blocker(ballx=ballx, bally=bally, ballvx=ballvx, ballvy=ballvy, blocker_pred_x=blocker_pred_x)
+        
+        elif Data[i]["ball_speed"][1] > 0 : # 球正在向下 # ball goes down
+            x = ( Data[i]["platform_1P"][1]-Data[i]["ball"][1] ) // Data[i]["ball_speed"][1] 
+            pred = Data[i]["ball"][0]+(Data[i]["ball_speed"][0]*x) 
+            bound = pred // 200 
+            if (bound > 0):
+                if (bound%2 == 0):
+                    pred = pred - bound*200 
                 else :
                     pred = 200 - (pred - 200*bound)
-            elif (bound < 0) : # pred < 0
-                if (bound%2 ==1) :
+            elif (bound < 0) :
+                if bound%2 ==1:
                     pred = abs(pred - (bound+1) *200)
                 else :
                     pred = pred + (abs(bound)*200)
-        elif Data[i]["ball"][1] >= 240:
-            rev_bvx = 0 - Data[i]["ball_speed"][0]
-            rev_bvy = 0 - Data[i]["ball_speed"][1]
-            if(rev_bvy == 0):
-                x = 0
-            else:
-                x = ( Data[i]["platform_1P"][1]-Data[i]["ball"][1] ) // rev_bvy # 幾個frame以後會需要接  # x means how many frames before catch the ball
-            pred = Data[i]["ball"][0]+((rev_bvx + np.sign(rev_bvx) * 5)*x)  # 預測最終位置 # pred means predict ball landing site 
-            bound = pred // 200 # Determine if it is beyond the boundary
-            if (bound > 0): # pred > 200 # fix landing position
-                if (bound%2 == 0) : 
-                    pred = pred - bound*200                    
-                else :
-                    pred = 200 - (pred - 200*bound)
-            elif (bound < 0) : # pred < 0
-                if (bound%2 ==1) :
-                    pred = abs(pred - (bound+1) *200)
-                else :
-                    pred = pred + (abs(bound)*200)
+
         else : # 球正在向上 # ball goes up
             pred = 100
 
@@ -211,7 +251,7 @@ if __name__ == '__main__':
     Y = data[:, -1]
 
     x_train , x_test,y_train,y_test = train_test_split(X,Y,test_size=0.2)
-    tree = DecisionTreeClassifier(criterion='entropy', max_depth=15, random_state=0)     
+    tree = DecisionTreeClassifier(criterion='entropy', max_depth=13, random_state=0)     
     tree.fit(x_train, y_train)
     y_predict = tree.predict(x_test)
     print(y_predict)
