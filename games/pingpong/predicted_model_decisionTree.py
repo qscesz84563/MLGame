@@ -7,6 +7,13 @@ from sklearn.model_selection import train_test_split
 from sklearn import metrics
 
 
+class Pred:
+    pred = 100
+    blocker_pred_x = 0
+    last_command = 0
+    blocker_vx = 0
+
+
 def transformCommand(command):
     if 'MOVE_RIGHT' == command:
         return 1
@@ -14,49 +21,6 @@ def transformCommand(command):
         return 2
     else:
         return 0
-
-def check_hit_blocker(ballx, bally, ballvx, ballvy, blocker_pred_x):
-    y = abs((bally - 260) // ballvy)
-    pred = ballx + ballvx * y
-    if pred < 0:
-        x = abs(ballx // ballvx)
-        bally = bally + ballvy * x
-        ballx = 0
-        ballvx *= -1
-        y = abs((bally - 260) // ballvy)
-        pred = ballx + ballvx * y
-    else:
-        x = abs((ballx - 200)// ballvx)
-        bally = bally + ballvy * x
-        ballx = 200
-        ballvx *= -1
-        y = abs((bally - 260) // ballvy)
-        pred = ballx + ballvx * y
-        
-    if(pred >= blocker_pred_x and pred <= blocker_pred_x+30):
-        ballx = pred
-        bally = 260
-        ballvx *= -1
-        ballvy *= -1
-        y = abs((420 - 260) // ballvy)
-        pred = ballx + ballvx * y
-        if pred < 0:
-            x = abs(ballx // ballvx)
-            bally = bally + ballvy * x
-            ballx = 0
-            ballvx *= -1
-            y = abs((bally - 420) // ballvy)
-            pred = ballx + ballvx * y
-        else:
-            x = abs((ballx - 200)// ballvx)
-            bally = bally + ballvy * x
-            ballx = 200
-            ballvx *= -1
-            y = abs((bally - 420) // ballvy)
-            pred = ballx + ballvx * y
-    else: pred = 100
-
-    return pred
 
 if __name__ == '__main__':
     # read all file under log   
@@ -76,135 +40,115 @@ if __name__ == '__main__':
             for i in range(len(handle)):
                 Data.append(handle[i])
     data = np.zeros((len(Data), 1))
-
-    # 8 features
-    # 0
+    # 1
     Ball_x = []
     for i in range(len(Data)):
         Ball_x.append(Data[i]['ball'][0])
     Ball_x = np.array(Ball_x)
     Ball_x = Ball_x.reshape(len(Ball_x), 1)
     data = np.hstack((data, Ball_x))
-    # 1
+    # 2
     Ball_y = []
     for i in range(len(Data)):
         Ball_y.append(Data[i]['ball'][1])
     Ball_y = np.array(Ball_y)
     Ball_y = Ball_y.reshape(len(Ball_y), 1)
     data = np.hstack((data, Ball_y))
-    # 2
+    # 3
     Ball_vx = []
     for i in range(len(Data)):
         Ball_vx.append(Data[i]['ball_speed'][0])
     Ball_vx = np.array(Ball_vx)
     Ball_vx = Ball_vx.reshape(len(Ball_vx), 1)
     data = np.hstack((data, Ball_vx))
-    # 3
+    # 4
     Ball_vy = []
     for i in range(len(Data)):
         Ball_vy.append(Data[i]['ball_speed'][1])
     Ball_vy = np.array(Ball_vy)
     Ball_vy = Ball_vy.reshape(len(Ball_vy), 1)
     data = np.hstack((data, Ball_vy))
-    # 4
+    # 5
     plat1_x = []
     for i in range (len(Data)):
         plat1_x.append(Data[i]['platform_1P'][0])
     plat1_x = np.array(plat1_x)
     plat1_x = plat1_x.reshape(len(plat1_x), 1)
     data = np.hstack((data, plat1_x))
-    # 5
-    # plat1_y = []
-    # for i in range (len(Data)):
-    #     plat1_y.append(Data[i]['platform_1P'][1])
-    # plat1_y = np.array(plat1_y)
-    # plat1_y = plat1_y.reshape(len(plat1_y), 1)
-    # data = np.hstack((data, plat1_y))
-
-    plat2_x = []
-    for i in range(len(Data)):
-        plat2_x.append(Data[i]['platform_2P'][0])
-    plat2_x = np.array(plat2_x)
-    plat2_x = plat2_x.reshape(len(plat2_x), 1)
-    data = np.hstack((data, plat2_x))
-
-    # plat2_y = []
-    # for i in range(len(Data)):
-    #     plat2_y.append(Data[i]['platform_2P'][1])
-    # plat2_y = np.array(plat2_y)
-    # plat2_y = plat2_y.reshape(len(plat2_y), 1)
-    # data = np.hstack((data, plat2_y))
     # 6
+    plat2_hit_ball_x = []
+    for i in range(len(Data)):
+        if Data[i]["ball"][1] == 80:
+            plat2_hit_ball_x.append(Data[i]["ball"][0])
+        else: plat2_hit_ball_x.append(1000)
+    plat2_hit_ball_x = np.array(plat2_hit_ball_x)
+    plat2_hit_ball_x = plat2_hit_ball_x.reshape(len(plat2_hit_ball_x), 1)
+    data = np.hstack((data, plat2_hit_ball_x))
+    # 7
     blocker_x = []
     for i in range(len(Data)):
         blocker_x.append(Data[i]['blocker'][0])
     blocker_x = np.array(blocker_x)
     blocker_x = blocker_x.reshape(len(blocker_x), 1)
     data = np.hstack((data, blocker_x))
-    # 7
-    blocker_y = []
-    for i in range(len(Data)):
-        blocker_y.append(Data[i]['blocker'][1])
-    blocker_y = np.array(blocker_y)
-    blocker_y = blocker_y.reshape(len(blocker_y), 1)
-    data = np.hstack((data, blocker_y))
-
-    pred_same = []
+    # 8
+    pred_origin = []
+    # 9
     pred_minus5 = []
+    # 10
     pred_minus10 = []
+    # 11
     pred_minus15 = []
-    pred_minus20 = []
+    # 12
     pred_add5 = []
+    # 13
     pred_add10 = []
+    # 14
     pred_add15 = []
-    pred_add20 = []
+
     for i in range(len(Data)):
-        if(i == len(Data) - 1):
-            blockervx = Data[i]["ball"][0] - Data[i - 1]["ball"][0]
+        if i == 0:
+            Pred.last_command = 0
         else:
-            blockervx = Data[i + 1]["ball"][0] - Data[i]["ball"][0]
-        if(Data[i]["ball"][1] >= 240 and Data[i]["ball_speed"][1] < 0):
-            ballx = Data[i]["ball"][0]
-            bally = Data[i]["ball"][1]
-            ballvx = Data[i]["ball_speed"][0]
-            ballvy = Data[i]["ball_speed"][1]
-            blocker_pred_x = Data[i]["blocker"][0] + blockervx*(abs((bally - 260) // ballvy))
-            if blocker_pred_x < 0: blocker_pred_x = abs(blocker_pred_x)
-            elif blocker_pred_x > 170: blocker_pred_x = 170 - (abs(blocker_pred_x) - 170)
+            Pred.last_command = Data[i - 1]["command_1P"]
 
-            pred = check_hit_blocker(ballx=ballx, bally=bally, ballvx=ballvx, ballvy=ballvy, blocker_pred_x=blocker_pred_x)
-        
+        if i == len(Data) - 1:
+            blocker_vx = Data[i]["blocker"][0] - Data[i - 1]["blocker"][0]
+        else:
+            blocker_vx = Data[i + 1]["blocker"][0] - Data[i]["blocker"][0]
+
+        if Data[i]["ball_speed"][1] > 0 and (Data[i]["ball"][1]+Data[i]["ball_speed"][1]) >= 415 and Pred.last_command == 0:
+            y = abs((415 - Data[i]["ball"][1]) // Data[i]["ball_speed"][1])
+            Pred.pred = Data[i]["ball"][0] + Data[i]["ball_speed"][0] * y
+
         elif Data[i]["ball_speed"][1] > 0 : # 球正在向下 # ball goes down
-            x = ( Data[i]["platform_1P"][1]-Data[i]["ball"][1] ) // Data[i]["ball_speed"][1] 
-            pred = Data[i]["ball"][0]+(Data[i]["ball_speed"][0]*x) 
-            bound = pred // 200 
-            if (bound > 0):
-                if (bound%2 == 0):
-                    pred = pred - bound*200 
+            x = ( Data[i]["platform_1P"][1]-Data[i]["ball"][1] ) // Data[i]["ball_speed"][1] # 幾個frame以後會需要接  # x means how many frames before catch the ball
+            Pred.pred = Data[i]["ball"][0]+(Data[i]["ball_speed"][0]*x)  # 預測最終位置 # pred means predict ball landing site 
+            bound = Pred.pred // 200 # Determine if it is beyond the boundary
+            if (bound > 0): # pred > 200 # fix landing position
+                if (bound%2 == 0) : 
+                    Pred.pred = Pred.pred - bound*200                    
                 else :
-                    pred = 200 - (pred - 200*bound)
-            elif (bound < 0) :
-                if bound%2 ==1:
-                    pred = abs(pred - (bound+1) *200)
+                    Pred.pred = 200 - (Pred.pred - 200*bound)
+            elif (bound < 0) : # pred < 0
+                if (bound%2 ==1) :
+                    Pred.pred = abs(Pred.pred - (bound+1) *200)
                 else :
-                    pred = pred + (abs(bound)*200)
-
+                    Pred.pred = Pred.pred + (abs(bound)*200)
         else : # 球正在向上 # ball goes up
-            pred = 100
+            Pred.pred = 100
 
-        pred_same.append(pred)
-        pred_minus5.append(pred - 5)
-        pred_minus10.append(pred - 10)
-        pred_minus15.append(pred - 15)
-        pred_minus20.append(pred - 20)
-        pred_add5.append(pred + 5)
-        pred_add10.append(pred + 10)
-        pred_add15.append(pred + 15)
-        pred_add20.append(pred + 20)
+        pred_origin.append(Pred.pred)
+        pred_minus5.append(Pred.pred - 5)
+        pred_minus10.append(Pred.pred - 10)
+        pred_minus15.append(Pred.pred - 15)
+        pred_add5.append(Pred.pred + 5)
+        pred_add10.append(Pred.pred + 10)
+        pred_add15.append(Pred.pred + 15)
     
-    pred_same = np.array(pred_same)
-    pred_same = pred_same.reshape(len(pred_same), 1)
-    data = np.hstack((data, pred_same))
+    pred_origin = np.array(pred_origin)
+    pred_origin = pred_origin.reshape(len(pred_origin), 1)
+    data = np.hstack((data, pred_origin))
 
     pred_minus5 = np.array(pred_minus5)
     pred_minus5 = pred_minus5.reshape(len(pred_minus5), 1)
@@ -214,30 +158,23 @@ if __name__ == '__main__':
     pred_minus10 = pred_minus10.reshape(len(pred_minus10), 1)
     data = np.hstack((data, pred_minus10))
 
-    # pred_minus15 = np.array(pred_minus15)
-    # pred_minus15 = pred_minus15.reshape(len(pred_minus15), 1)
-    # data = np.hstack((data, pred_minus15))
-
-    # pred_minus20 = np.array(pred_minus20)
-    # pred_minus20 = pred_minus20.reshape(len(pred_minus20), 1)
-    # data = np.hstack((data, pred_minus20))
+    pred_minus15 = np.array(pred_minus15)
+    pred_minus15 = pred_minus15.reshape(len(pred_minus15), 1)
+    data = np.hstack((data, pred_minus15))
 
     pred_add5 = np.array(pred_add5)
-    pred_add5 = pred_same.reshape(len(pred_add5), 1)
+    pred_add5 = pred_origin.reshape(len(pred_add5), 1)
     data = np.hstack((data, pred_add5))
 
     pred_add10 = np.array(pred_add10)
     pred_add10 = pred_add10.reshape(len(pred_add10), 1)
     data = np.hstack((data, pred_add10))
 
-    # pred_add15 = np.array(pred_add15)
-    # pred_add15 = pred_add15.reshape(len(pred_add15), 1)
-    # data = np.hstack((data, pred_add15))
+    pred_add15 = np.array(pred_add15)
+    pred_add15 = pred_add15.reshape(len(pred_add15), 1)
+    data = np.hstack((data, pred_add15))
 
-    # pred_add20 = np.array(pred_add20)
-    # pred_add20 = pred_add20.reshape(len(pred_add20), 1)
-    # data = np.hstack((data, pred_add20))
-
+    # 15
     command_1P = []
     for i in range(len(Data)):
         command_1P.append(transformCommand(Data[i]['command_1P']))
@@ -245,13 +182,14 @@ if __name__ == '__main__':
     command_1P = command_1P.reshape(len(command_1P), 1)
     data = np.hstack((data, command_1P))
 
+
     data = data[:,1:]
 
     X = data[:, :-1]
     Y = data[:, -1]
 
     x_train , x_test,y_train,y_test = train_test_split(X,Y,test_size=0.2)
-    tree = DecisionTreeClassifier(criterion='entropy', max_depth=13, random_state=0)     
+    tree = DecisionTreeClassifier(criterion='entropy', max_depth=10, random_state=0)     
     tree.fit(x_train, y_train)
     y_predict = tree.predict(x_test)
     print(y_predict)

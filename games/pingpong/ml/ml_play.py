@@ -3,7 +3,7 @@ The template of the script for the machine learning process in game pingpong
 """
 import pickle
 import numpy as np
-import os.path
+from os import path
 # Import the necessary modules and classes
 from mlgame.communication import ml as comm
 
@@ -122,17 +122,81 @@ def ml_loop(side: str):
             blockervx = scene_info["blocker"][0] - blocker_last_x
         else:
             blockervx = -99
-
-        if(scene_info["ball"][1] >= 240 and scene_info["ball_speed"][1] < 0):
-            ballx = scene_info["ball"][0]
-            bally = scene_info["ball"][1]
-            ballvx = scene_info["ball_speed"][0]
-            ballvy = scene_info["ball_speed"][1]
-            blocker_pred_x = scene_info["blocker"][0] + blockervx*(abs((bally - 260) // ballvy))
-            if blocker_pred_x < 0: blocker_pred_x = abs(blocker_pred_x)
-            elif blocker_pred_x > 170: blocker_pred_x = 170 - (abs(blocker_pred_x) - 170)
-
-            pred = check_hit_blocker(ballx=ballx, bally=bally, ballvx=ballvx, ballvy=ballvy, blocker_pred_x=blocker_pred_x)
+        if scene_info["ball_speed"][1] > 0 and scene_info["ball"][1] <= 240:
+            if(scene_info["ball_speed"][1] < 0):
+                x = abs(scene_info["ball"][0] // scene_info["ball_speed"][0])
+                pred_y = scene_info["ball"][1] + scene_info["ball_speed"][1] * x
+                ball_x = 0
+                ball_vx = scene_info["ball_speed"][0] * -1
+                x = abs((scene_info["blocker"][0] - ball_x) // ball_vx)
+                pred_y = pred_y + scene_info["ball_speed"][1] * x
+                if(pred_y > 240 and pred_y < 260):
+                    ball_x = scene_info["blocker"][1]
+                    ball_vx *= -1
+                    y = abs((scene_info["platform_1P"][1] - pred_y) // scene_info["ball_speed"][1])
+                    pred = ball_x + ball_vx * y
+                    bound = pred // 200 # Determine if it is beyond the boundary
+                    if (bound > 0): # pred > 200 # fix landing position
+                        if (bound%2 == 0) : 
+                            pred = pred - bound*200                    
+                        else :
+                            pred = 200 - (pred - 200*bound)
+                    elif (bound < 0) : # pred < 0
+                        if (bound%2 ==1) :
+                            pred = abs(pred - (bound+1) *200)
+                        else :
+                            pred = pred + (abs(bound)*200)
+                else:
+                    x = ( scene_info["platform_1P"][1]-scene_info["ball"][1] ) // scene_info["ball_speed"][1] # 幾個frame以後會需要接  # x means how many frames before catch the ball
+                    pred = scene_info["ball"][0]+(scene_info["ball_speed"][0]*x)  # 預測最終位置 # pred means predict ball landing site 
+                    bound = pred // 200 # Determine if it is beyond the boundary
+                    if (bound > 0): # pred > 200 # fix landing position
+                        if (bound%2 == 0) : 
+                            pred = pred - bound*200                    
+                        else :
+                            pred = 200 - (pred - 200*bound)
+                    elif (bound < 0) : # pred < 0
+                        if (bound%2 ==1) :
+                            pred = abs(pred - (bound+1) *200)
+                        else :
+                            pred = pred + (abs(bound)*200)
+            else:
+                x = abs((200 - scene_info["ball"][0]) // scene_info["ball_speed"][0])
+                pred_y = scene_info["ball"][1] + scene_info["ball_speed"][1] * x
+                ball_x = 200
+                ball_vx = scene_info["ball_speed"][0] * -1
+                x = abs(((scene_info["blocker"][0]+30) - ball_x) // ball_vx)
+                pred_y = pred_y + scene_info["ball_speed"][1] * x
+                if(pred_y > 240 and pred_y < 260):
+                    ball_x = scene_info["blocker"][1]
+                    ball_vx *= -1
+                    y = abs((scene_info["platform_1P"][1] - pred_y) // scene_info["ball_speed"][1])
+                    pred = ball_x + ball_vx * y
+                    bound = pred // 200 # Determine if it is beyond the boundary
+                    if (bound > 0): # pred > 200 # fix landing position
+                        if (bound%2 == 0) : 
+                            pred = pred - bound*200                    
+                        else :
+                            pred = 200 - (pred - 200*bound)
+                    elif (bound < 0) : # pred < 0
+                        if (bound%2 ==1) :
+                            pred = abs(pred - (bound+1) *200)
+                        else :
+                            pred = pred + (abs(bound)*200)
+                else:
+                    x = ( scene_info["platform_1P"][1]-scene_info["ball"][1] ) // scene_info["ball_speed"][1] # 幾個frame以後會需要接  # x means how many frames before catch the ball
+                    pred = scene_info["ball"][0]+(scene_info["ball_speed"][0]*x)  # 預測最終位置 # pred means predict ball landing site 
+                    bound = pred // 200 # Determine if it is beyond the boundary
+                    if (bound > 0): # pred > 200 # fix landing position
+                        if (bound%2 == 0) : 
+                            pred = pred - bound*200                    
+                        else :
+                            pred = 200 - (pred - 200*bound)
+                    elif (bound < 0) : # pred < 0
+                        if (bound%2 ==1) :
+                            pred = abs(pred - (bound+1) *200)
+                        else :
+                            pred = pred + (abs(bound)*200)
         
         elif scene_info["ball_speed"][1] > 0 : # 球正在向下 # ball goes down
             x = ( scene_info["platform_1P"][1]-scene_info["ball"][1] ) // scene_info["ball_speed"][1] 
@@ -148,16 +212,26 @@ def ml_loop(side: str):
                     pred = abs(pred - (bound+1) *200)
                 else :
                     pred = pred + (abs(bound)*200)
+        elif(scene_info["ball"][1] >= 240 and scene_info["ball_speed"][1] < 0):
+            ballx = scene_info["ball"][0]
+            bally = scene_info["ball"][1]
+            ballvx = scene_info["ball_speed"][0]
+            ballvy = scene_info["ball_speed"][1]
+            blocker_pred_x = scene_info["blocker"][0] + blockervx*(abs((bally - 260) // ballvy))
+            if blocker_pred_x < 0: blocker_pred_x = abs(blocker_pred_x)
+            elif blocker_pred_x > 170: blocker_pred_x = 170 - (abs(blocker_pred_x) - 170)
+
+            pred = check_hit_blocker(ballx=ballx, bally=bally, ballvx=ballvx, ballvy=ballvy, blocker_pred_x=blocker_pred_x)
 
         else : # 球正在向上 # ball goes up
             pred = 100
         feature.append(pred)
         feature.append(pred - 5)
-        feature.append(pred - 10)
+        feature.append(pred - 7)
         # feature.append(pred - 15)
         # feature.append(pred - 20)
         feature.append(pred + 5)
-        feature.append(pred + 10)
+        feature.append(pred + 7)
         # feature.append(pred + 15)
         # feature.append(pred + 20)
 

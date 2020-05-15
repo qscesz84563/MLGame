@@ -3,6 +3,7 @@ The template of the script for the machine learning process in game pingpong
 """
 
 # Import the necessary modules and classes
+import numpy as np
 from mlgame.communication import ml as comm
 
 def ml_loop(side: str):
@@ -23,52 +24,14 @@ def ml_loop(side: str):
     # 1. Put the initialization code here
     ball_served = False
     blocker_last_x = 0
-    blockervx = 0
 
-    def check_hit_blocker(ballx, bally, ballvx, ballvy, blocker_pred_x):
-        y = abs((bally - 260) // ballvy)
-        pred = ballx + ballvx * y
-        if pred < 0:
-            x = abs(ballx // ballvx)
-            bally = bally + ballvy * x
-            ballx = 0
-            ballvx *= -1
-            y = abs((bally - 260) // ballvy)
-            pred = ballx + ballvx * y
-        else:
-            x = abs((ballx - 200)// ballvx)
-            bally = bally + ballvy * x
-            ballx = 200
-            ballvx *= -1
-            y = abs((bally - 260) // ballvy)
-            pred = ballx + ballvx * y
-        
-        if(pred >= blocker_pred_x and pred <= blocker_pred_x+30):
-            ballx = pred
-            bally = 260
-            ballvx *= -1
-            ballvy *= -1
-            y = abs((420 - 260) // ballvy)
-            pred = ballx + ballvx * y
-            if pred < 0:
-                x = abs(ballx // ballvx)
-                bally = bally + ballvy * x
-                ballx = 0
-                ballvx *= -1
-                y = abs((bally - 420) // ballvy)
-                pred = ballx + ballvx * y
-            else:
-                x = abs((ballx - 200)// ballvx)
-                bally = bally + ballvy * x
-                ballx = 200
-                ballvx *= -1
-                y = abs((bally - 420) // ballvy)
-                pred = ballx + ballvx * y
-        else: pred = 100
+    class Pred:
+        pred = 100
+        blocker_pred_x = 0
+        last_command = 0
+        blocker_vx = 0
 
-        return pred
-
-
+    
     def move_to(player, pred) : #move platform to predicted position to catch ball 
         if player == '1P':
             if scene_info["platform_1P"][0]+20  > (pred-10) and scene_info["platform_1P"][0]+20 < (pred+10): return 0 # NONE
@@ -80,34 +43,86 @@ def ml_loop(side: str):
             else : return 2 # goes left
 
     def ml_loop_for_1P(): 
-        if(scene_info["ball"][1] >= 240 and scene_info["ball_speed"][1] < 0):
-            ballx = scene_info["ball"][0]
-            bally = scene_info["ball"][1]
-            ballvx = scene_info["ball_speed"][0]
-            ballvy = scene_info["ball_speed"][1]
-            blocker_pred_x = scene_info["blocker"][0] + blockervx*(abs((bally - 260) // ballvy))
-            if blocker_pred_x < 0: blocker_pred_x = abs(blocker_pred_x)
-            elif blocker_pred_x > 170: blocker_pred_x = 170 - (abs(blocker_pred_x) - 170)
+        # ball slicing
+        if scene_info["ball_speed"][1] > 0 and (scene_info["ball"][1]+scene_info["ball_speed"][1]) >= 415 and Pred.last_command == 0:
+            print("------")
+            ball_x = scene_info["ball"][0]
+            ball_y = scene_info["ball"][1]
+            ball_vx = scene_info["ball_speed"][0]
+            ball_slice_vx = scene_info["ball_speed"][0]+np.sign(scene_info["ball_speed"][0])*3
+            ball_vy = scene_info["ball_speed"][1] 
+            blocker_x = scene_info['blocker'][0] + Pred.blocker_vx
+            
+            y = abs((415 - ball_y) // ball_vy)
+            pred_ball_1P = ball_x + ball_vx * y
 
-            pred = check_hit_blocker(ballx=ballx, bally=bally, ballvx=ballvx, ballvy=ballvy, blocker_pred_x=blocker_pred_x)
-            return move_to(player = '1P',pred = pred)
-        
+            y = abs((415 - 260) // ball_vy)
+            pred_ball_blocker = pred_ball_1P + ball_slice_vx * y
+            bound = pred_ball_blocker // 200 # Determine if it is beyond the boundary
+            if (bound > 0): # pred > 200 # fix landing position
+                if (bound%2 == 0) : 
+                    pred_ball_blocker = pred_ball_blocker - bound*200                    
+                else :
+                    pred_ball_blocker = 200 - (pred_ball_blocker - 200*bound)
+            elif (bound < 0) : # pred < 0
+                if (bound%2 ==1) :
+                    pred_ball_blocker = abs(pred_ball_blocker - (bound+1) *200)
+                else :
+                    pred_ball_blocker = pred_ball_blocker + (abs(bound)*200)
+            
+            y = abs((415 - 260) // ball_vy)
+            Pred.blocker_pred_x = blocker_x + Pred.blocker_vx * y 
+            if Pred.blocker_pred_x < 0: Pred.blocker_pred_x = abs(Pred.blocker_pred_x)
+            elif Pred.blocker_pred_x > 170: Pred.blocker_pred_x = 170 - (Pred.blocker_pred_x - 170)
+            
+            if pred_ball_blocker >= Pred.blocker_pred_x-10 and pred_ball_blocker < Pred.blocker_pred_x+40:
+                print("slice will hit blicker")
+                # don't slice 
+                # use origin ball vx to predict will hit blocker or not
+                # if will hit blicker let ball go reverse direction
+                y = abs((415 - 260) // ball_vy)
+                pred_ball_blocker = pred_ball_1P + ball_vx * y
+                bound = pred_ball_blocker // 200 # Determine if it is beyond the boundary
+                if (bound > 0): # pred > 200 # fix landing position
+                    if (bound%2 == 0) : 
+                        pred_ball_blocker = pred_ball_blocker - bound*200                    
+                    else :
+                        pred_ball_blocker = 200 - (pred_ball_blocker - 200*bound)
+                elif (bound < 0) : # pred < 0
+                    if (bound%2 ==1) :
+                        pred_ball_blocker = abs(pred_ball_blocker - (bound+1) *200)
+                    else :
+                        pred_ball_blocker = pred_ball_blocker + (abs(bound)*200)
+
+                if pred_ball_blocker >= Pred.blocker_pred_x-10 and pred_ball_blocker < Pred.blocker_pred_x+40:
+                    print("will hit blocker, hit reversed direction")
+                    if scene_info["ball_speed"][0] > 0: return 2
+                    else: return 1
+                else: 
+                    print("will not hit blicker, do nothing")
+                    return 0
+            else:
+                # slice
+                print("slice will not hit blocker")
+                if scene_info["ball_speed"][0] > 0: return 1
+                else: return 2
+
         elif scene_info["ball_speed"][1] > 0 : # 球正在向下 # ball goes down
-            x = ( scene_info["platform_1P"][1]-scene_info["ball"][1] ) // scene_info["ball_speed"][1] 
-            pred = scene_info["ball"][0]+(scene_info["ball_speed"][0]*x) 
-            bound = pred // 200 
-            if (bound > 0):
-                if (bound%2 == 0):
-                    pred = pred - bound*200 
+            x = ( scene_info["platform_1P"][1]-scene_info["ball"][1] ) // scene_info["ball_speed"][1] # 幾個frame以後會需要接  # x means how many frames before catch the ball
+            Pred.pred = scene_info["ball"][0]+(scene_info["ball_speed"][0]*x)  # 預測最終位置 # pred means predict ball landing site 
+            bound = Pred.pred // 200 # Determine if it is beyond the boundary
+            if (bound > 0): # pred > 200 # fix landing position
+                if (bound%2 == 0) : 
+                    Pred.pred = Pred.pred - bound*200                    
                 else :
-                    pred = 200 - (pred - 200*bound)
-            elif (bound < 0) :
-                if bound%2 ==1:
-                    pred = abs(pred - (bound+1) *200)
+                    Pred.pred = 200 - (Pred.pred - 200*bound)
+            elif (bound < 0) : # pred < 0
+                if (bound%2 ==1) :
+                    Pred.pred = abs(Pred.pred - (bound+1) *200)
                 else :
-                    pred = pred + (abs(bound)*200)
-            return move_to(player = '1P',pred = pred)
-
+                    Pred.pred = Pred.pred + (abs(bound)*200)
+            return move_to(player = '1P',pred = Pred.pred)
+                
         else : # 球正在向上 # ball goes up
             return move_to(player = '1P',pred = 100)
 
@@ -158,12 +173,16 @@ def ml_loop(side: str):
         if not ball_served:
             comm.send_to_game({"frame": scene_info["frame"], "command": "SERVE_TO_LEFT"})
             blocker_last_x = scene_info["blocker"][0]
+            Pred.last_command = 0
             ball_served = True
         else:
             if side == "1P":
-                blockervx = scene_info["blocker"][0] - blocker_last_x
-                blocker_last_x = scene_info["blocker"][0]
+                Pred.blocker_vx = scene_info["blocker"][0] - blocker_last_x
+                if scene_info["blocker"][0] == 0: Pred.blocker_vx = 5
+                elif scene_info["blocker"][0] == 170: Pred.blocker_vx = -5
                 command = ml_loop_for_1P()
+                blocker_last_x = scene_info["blocker"][0]
+                Pred.last_command = command
             else:
                 command = ml_loop_for_2P()
 
